@@ -1,0 +1,47 @@
+#define BLYNK_TEMPLATE_ID "TMPL3mAQ5Uz3u"
+#define BLYNK_TEMPLATE_NAME "IoT project"
+#define BLYNK_AUTH_TOKEN "7y2rkukURDMGBWti3L4Re397jQP7u1Yp"
+#include <ESP8266WiFi.h>
+#include <BlynkSimpleEsp8266.h>
+char auth[] = "7y2rkukURDMGBWti3L4Re397jQP7u1Yp";
+char ssid[] = "Airtel_prakash1976";       
+char pass[] = "06051976"; 
+SoftwareSerial gpsSerial(D3, D4); 
+TinyGPSPlus gps;
+#define BUZZER_PIN D5
+bool searchCoords = false;
+void setup() {
+  Serial.begin(9600);
+  gpsSerial.begin(9600);
+  pinMode(BUZZER_PIN, OUTPUT);
+  digitalWrite(BUZZER_PIN, LOW);
+  Blynk.begin(auth, ssid, pass);
+}
+BLYNK_WRITE(V0) {
+  searchCoords = param.asInt();
+}
+BLYNK_WRITE(V1) {
+  int buzz = param.asInt();
+  if (buzz == 1) {
+    digitalWrite(BUZZER_PIN, HIGH);
+    delay(1000);
+    digitalWrite(BUZZER_PIN, LOW);
+  }
+}
+void loop() {
+  Blynk.run();
+  if (searchCoords) {
+    while (gpsSerial.available()){
+      gps.encode(gpsSerial.read());
+    }
+    if (gps.location.isUpdated()) {
+      float lat = gps.location.lat();
+      float lng = gps.location.lng();
+      Serial.print("Lat: "); Serial.println(lat, 6);
+      Serial.print("Lng: "); Serial.println(lng, 6);
+      Blynk.virtualWrite(V2, lat); 
+      Blynk.virtualWrite(V3, lng);
+      searchCoords = false; 
+    }
+  }
+}
