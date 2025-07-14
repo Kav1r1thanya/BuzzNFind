@@ -1,0 +1,397 @@
+find.html
+
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>BuzzNfind 🚗🔊</title>
+  <style>
+    :root {
+      --bg-color: #0f0f1a;
+      --text-color: #e0f7fa;
+      --accent-color: #00e5ff;
+    }
+
+    [data-theme="light"] {
+      --bg-color: #f1f1f1;
+      --text-color: #111;
+      --accent-color: #007bff;
+    }
+
+    body {
+      background-color: var(--bg-color);
+      color: var(--text-color);
+      font-family: 'Segoe UI', sans-serif;
+      text-align: center;
+      padding: 40px 20px 20px;
+      display: flex;
+      flex-direction: column;
+      justify-content: center;
+      align-items: center;
+      min-height: 100vh;
+      position: relative;
+    }
+
+    h1 {
+      font-size: 2.5rem;
+      color: var(--accent-color);
+      text-shadow: 0 0 3px var(--accent-color);
+    }
+
+    .btn {
+      padding: 10px 18px;
+      background: var(--accent-color);
+      border: none;
+      border-radius: 50px;
+      color: var(--bg-color);
+      font-weight: bold;
+      font-size: 1rem;
+      cursor: pointer;
+      margin: 10px auto;
+      box-shadow: 0 0 4px var(--accent-color), 0 0 8px var(--accent-color);
+      transition: 0.3s;
+      display: inline-block;
+    }
+
+    .btn:hover {
+      background: #00bcd4;
+      box-shadow: 0 0 10px var(--accent-color), 0 0 14px var(--accent-color);
+    }
+
+    #status {
+      margin: 15px 0;
+      font-size: 1.1rem;
+      color: var(--accent-color);
+      animation: pulse 2s infinite;
+    }
+
+    @keyframes pulse {
+      0%, 100% { text-shadow: 0 0 3px var(--accent-color); }
+      50% { text-shadow: 0 0 6px var(--accent-color); }
+    }
+
+    #location {
+      margin-top: 20px;
+    }
+
+    iframe {
+      border-radius: 10px;
+      border: 2px solid var(--accent-color);
+    }
+
+    #loader {
+      display: none;
+      margin: 20px auto;
+      border: 6px solid #333;
+      border-top: 6px solid var(--accent-color);
+      border-radius: 50%;
+      width: 40px;
+      height: 40px;
+      animation: spin 1s linear infinite;
+    }
+
+    @keyframes spin {
+      0% { transform: rotate(0deg); }
+      100% { transform: rotate(360deg); }
+    }
+
+    #theme-toggle {
+      position: absolute;
+      top: 15px;
+      right: 20px;
+    }
+
+    #dashboard-link {
+      position: absolute;
+      top: 15px;
+      left: 20px;
+    }
+  </style>
+</head>
+<body>
+  <button class="btn" id="dashboard-link" onclick="goToDashboard()">🏠 Dashboard</button>
+  <button class="btn" id="theme-toggle" onclick="toggleTheme()">🌓 Theme</button>
+
+  <h1>🚘 BuzzNfind</h1>
+  <div>
+    <button class="btn" onclick="fetchLocation()">🔍 Find Now</button>
+  </div>
+
+  <div id="loader"></div>
+  <div id="status">📡 Awaiting Location Request...</div>
+
+  <div id="location"></div>
+
+  <div id="buzz-container" style="display:none;">
+    <button class="btn" onclick="buzzDevice()">🔔 Buzz Device</button>
+  </div>
+
+  <script>
+    const blynkToken = "7y2rkukURDMGBWti3L4Re397jQP7u1Yp";
+
+    function toggleTheme() {
+      const current = document.documentElement.getAttribute('data-theme');
+      document.documentElement.setAttribute('data-theme', current === 'light' ? 'dark' : 'light');
+    }
+
+    function goToDashboard() {
+      window.location.href = "index.html";
+    }
+
+    function fetchLocation() {
+      document.getElementById('loader').style.display = 'block';
+      document.getElementById('status').innerText = "🛰️ Fetching coordinates...";
+
+      fetch(`https://blynk.cloud/external/api/update?token=${blynkToken}&V0=1`);
+
+      const latURL = `https://blynk.cloud/external/api/get?token=${blynkToken}&V2`;
+      const lonURL = `https://blynk.cloud/external/api/get?token=${blynkToken}&V3`;
+
+      Promise.all([fetch(latURL), fetch(lonURL)])
+        .then(async ([latRes, lonRes]) => {
+          if (!latRes.ok || !lonRes.ok) throw new Error("Failed to fetch coordinates.");
+
+          const lat = await latRes.text();
+          const lon = await lonRes.text();
+
+          document.getElementById('status').innerText = "✅ Coordinates received!";
+          document.getElementById('loader').style.display = 'none';
+
+          document.getElementById('location').innerHTML = `
+            <div style="margin-top: 10px; font-size: 1.1rem;">
+              📍 <strong>Your device is here:</strong><br/>
+              🔹 Latitude: <span style="color:var(--accent-color)">${lat}</span><br/>
+              🔹 Longitude: <span style="color:var(--accent-color)">${lon}</span><br/>
+              <iframe
+                width="350"
+                height="250"
+                frameborder="0"
+                style="border:0; margin-top: 10px;"
+                src="https://maps.google.com/maps?q=${lat},${lon}&z=15&output=embed"
+                allowfullscreen>
+              </iframe>
+            </div>
+          `;
+
+          document.getElementById('buzz-container').style.display = 'block';
+
+          setTimeout(() => {
+            fetch(`https://blynk.cloud/external/api/update?token=${blynkToken}&V0=0`);
+          }, 5000);
+        })
+        .catch(error => {
+          console.error(error);
+          document.getElementById('status').innerText = "❌ Failed to get location data.";
+          document.getElementById('loader').style.display = 'none';
+        });
+    }
+
+    function buzzDevice() {
+      fetch(`https://blynk.cloud/external/api/update?token=${blynkToken}&V1=1`);
+      setTimeout(() => {
+        fetch(`https://blynk.cloud/external/api/update?token=${blynkToken}&V1=0`);
+      }, 2000);
+    }
+  </script>
+</body>
+</html>
+
+
+index.html
+
+
+<!DOCTYPE html>
+<html>
+<head>
+  <title>GPS Coordinate Search</title>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+
+  <!-- Leaflet CSS -->
+  <link rel="stylesheet" href="https://unpkg.com/leaflet/dist/leaflet.css" />
+
+  <style>
+    :root {
+      --light-bg: #ffffff;
+      --light-text: #111;
+      --light-green: #28a745;
+      --dark-bg: #121212;
+      --dark-text: #e0f7fa;
+      --dark-green: #2ecc71;
+    }
+
+    body[data-theme="light"] {
+      background-color: var(--light-bg);
+      color: var(--light-text);
+    }
+
+    body[data-theme="dark"] {
+      background-color: var(--dark-bg);
+      color: var(--dark-text);
+    }
+
+    body {
+      font-family: Arial, sans-serif;
+      margin: 20px;
+      transition: background-color 0.3s, color 0.3s;
+    }
+
+    #map {
+      height: 500px;
+      width: 100%;
+    }
+
+    .input-container {
+      display: flex;
+      flex-wrap: wrap;
+      align-items: center;
+      justify-content: space-between;
+      gap: 10px;
+      margin: 15px 0;
+    }
+
+    .input-container input {
+      padding: 8px;
+      flex: 1 1 auto;
+      min-width: 140px;
+    }
+
+    .input-container .btn-group {
+      display: flex;
+      gap: 8px;
+      flex-wrap: wrap;
+    }
+
+    .btn {
+      background: var(--dark-green);
+      border: none;
+      color: white;
+      padding: 8px 14px;
+      border-radius: 6px;
+      cursor: pointer;
+      font-weight: bold;
+    }
+
+    body[data-theme="light"] .btn {
+      background: var(--light-green);
+    }
+
+    .btn:hover {
+      filter: brightness(1.1);
+    }
+
+    .clear-btn {
+      background: #dc3545;
+    }
+
+    .clear-btn:hover {
+      background: #b02a37;
+    }
+
+    .theme-toggle {
+      float: right;
+      margin-bottom: 10px;
+    }
+
+    .history-section {
+      margin-top: 20px;
+    }
+
+    .history-entry {
+      font-size: 0.95rem;
+      margin: 3px 0;
+    }
+    .footer {
+  margin-top: auto;
+  text-align: center;
+  padding: 15px 10px;
+  font-size: 0.9rem;
+  opacity: 0.8;
+  color: var(--text-color);
+}
+
+  </style>
+</head>
+<body data-theme="dark">
+
+<button class="btn theme-toggle" onclick="toggleTheme()">🌓 Theme</button>
+
+<h2>Search Coordinates</h2>
+
+<div class="input-container">
+  <input type="text" id="lat" placeholder="Latitude (e.g. 28.6139)" />
+  <input type="text" id="lng" placeholder="Longitude (e.g. 77.2090)" />
+  <div class="btn-group">
+    <button class="btn" onclick="goToCoords()">Go</button>
+    <button class="btn" onclick="window.location.href='find.html'">🔍 Locate Device</button>
+  </div>
+</div>
+
+<div id="map"></div>
+
+<div class="history-section">
+  <h3>📍 Last Known Locations</h3>
+  <div id="location-history">
+    <em>Loading recent coordinates...</em>
+  </div>
+  <button class="btn clear-btn" onclick="clearHistory()">🧹 Clear History</button>
+</div>
+
+<!-- Leaflet JS -->
+<script src="https://unpkg.com/leaflet/dist/leaflet.js"></script>
+<script>
+  var map = L.map('map').setView([20.5937, 78.9629], 5);
+
+  L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+    attribution: '&copy; OpenStreetMap contributors'
+  }).addTo(map);
+
+  var marker;
+
+  function goToCoords() {
+    var lat = parseFloat(document.getElementById("lat").value);
+    var lng = parseFloat(document.getElementById("lng").value);
+
+    if (isNaN(lat) || isNaN(lng)) {
+      alert("Please enter valid coordinates!");
+      return;
+    }
+
+    if (marker) {
+      map.removeLayer(marker);
+    }
+
+    map.setView([lat, lng], 13);
+    marker = L.marker([lat, lng]).addTo(map)
+      .bindPopup("Coordinates: " + lat + ", " + lng).openPopup();
+  }
+
+  function clearHistory() {
+    localStorage.removeItem("locationHistory");
+    document.getElementById("location-history").innerHTML = "<p>History cleared.</p>";
+  }
+
+  function toggleTheme() {
+    const body = document.body;
+    const current = body.getAttribute("data-theme");
+    const next = current === "dark" ? "light" : "dark";
+    body.setAttribute("data-theme", next);
+  }
+
+  window.addEventListener("DOMContentLoaded", () => {
+    const container = document.getElementById("location-history");
+    const history = JSON.parse(localStorage.getItem("locationHistory") || "[]");
+    if (history.length === 0) {
+      container.innerHTML = "<p>No recent locations found.</p>";
+    } else {
+      container.innerHTML = history.map(entry => `<div class="history-entry">${entry}</div>`).join('');
+    }
+  });
+</script>
+<footer class="footer">
+  © 2025 <strong>BuzzNfind</strong>. Made with 🚀 by <span style="color: var(--accent-color)">Photon101</span>
+</footer>
+
+</body>
+</html>
